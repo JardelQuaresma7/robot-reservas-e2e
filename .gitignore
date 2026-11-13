@@ -1,0 +1,11 @@
+results/
+pabot_results/
+.pabotsuitenames
+__pycache__/
+*.pyc
+.venv/
+.env
+log.html
+report.html
+output*.xml
+*.png

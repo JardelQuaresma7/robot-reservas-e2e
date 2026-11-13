@@ -1,0 +1,97 @@
+name: Regressao
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: "0 9 * * 1-5"   # 06h em Brasilia, dias uteis
+  workflow_dispatch:
+    inputs:
+      include:
+        description: "Tag para filtrar (ex.: smoke). Vazio roda tudo."
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: regressao-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - name: Robocop
+        run: robocop check
+
+  regressao:
+    needs: lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - uses: browser-actions/setup-chrome@v1
+
+      - name: Rodar bateria (paralelo + rerun dos vermelhos)
+        env:
+          BOOKER_USER: ${{ secrets.BOOKER_USER || 'admin' }}
+          BOOKER_PASSWORD: ${{ secrets.BOOKER_PASSWORD || 'password123' }}
+        run: |
+          ARGS=""
+          if [ -n "${{ github.event.inputs.include }}" ]; then ARGS="--include ${{ github.event.inputs.include }}"; fi
+          python scripts/run_regression.py $ARGS
+
+      - name: Resumo no job
+        if: always()
+        run: |
+          python - <<'EOF' >> "$GITHUB_STEP_SUMMARY"
+          from robot.api import ExecutionResult
+          r = ExecutionResult("results/output.xml")
+          s = r.statistics.total
+          print(f"## Regressao: {s.passed} verdes, {s.failed} vermelhos, {s.skipped} pulados")
+          EOF
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: resultados-robot
+          path: results/
+
+      - name: Preparar Pages
+        if: always() && github.ref == 'refs/heads/main'
+        run: |
+          mkdir -p site && cp results/log.html results/report.html site/
+          cp results/*.png site/ 2>/dev/null || true
+          cp site/report.html site/index.html
+
+      - uses: actions/upload-pages-artifact@v3
+        if: always() && github.ref == 'refs/heads/main'
+        with:
+          path: site
+
+  publicar-relatorio:
+    needs: regressao
+    if: always() && github.ref == 'refs/heads/main' && needs.regressao.result != 'cancelled'
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - id: deploy
+        uses: actions/deploy-pages@v4
