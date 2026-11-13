@@ -10,12 +10,13 @@ Regressão automatizada de uma **central de reservas de locadora de veículos**:
 edição, consulta, cancelamento, motorista adicional, grupo indisponível, rascunho, cadastro de
 cliente e API.
 
-**De onde vem:** eu criei e mantenho, como QA Sênior, a regressão automatizada do sistema de
-reservas de uma grande locadora — **62 cenários E2E em 17 suítes**, que levou a regressão de
-**6 horas (manual) para cerca de 30 minutos** no pipeline. O código do cliente não pode ser
-público, então este repositório traz **a mesma arquitetura e o mesmo catálogo de cenários**
-rodando contra a **Locadora Demo** (`app/`), um sistema de reservas pequeno que eu escrevi só
-para ser o alvo dos testes. Nenhum código, URL ou dado do cliente está aqui.
+**De onde vem:** este projeto é uma réplica da automação que eu criei e mantenho, como QA Sênior
+(Blite Tecnologia), para a **Central de Reservas da Unidas** — **62 cenários E2E em 17 suítes**,
+que levaram a regressão de **6 horas (manual) para cerca de 30 minutos** no pipeline.
+O sistema e o repositório da Unidas são privados, então aqui estão **a mesma arquitetura e o
+mesmo catálogo de cenários**, reescritos para rodar contra a **Locadora Demo** (`app/`), um sistema
+de reservas pequeno que eu escrevi só para ser o alvo dos testes. Nenhum código, URL, credencial
+ou dado da Unidas está neste repositório.
 
 ## Catálogo de cenários (69)
 
@@ -92,9 +93,10 @@ robocop check
 
 **EN —** End-to-end regression of a car-rental reservation system in Robot Framework and Python:
 individual and corporate reservations, update, search, cancellation, additional drivers,
-sold-out car groups, drafts, customer registration and API rules — 69 scenarios. It mirrors the
-architecture and scenario catalogue I built for a large car-rental company (62 E2E scenarios in
-17 suites, regression cut from 6 h to ~30 min), running against a small demo app written only as
-the test target. Highlights: section-level page objects + business flows, per-suite isolated test
+sold-out car groups, drafts, customer registration and API rules — 69 scenarios. It is a replica
+of the automation I built for the Reservation Center of Unidas, a large Brazilian car-rental
+company (62 E2E scenarios in 17 suites, regression cut from 6 h to ~30 min): same architecture and
+scenario catalogue, rewritten to run against a small demo app written only as the test target.
+No Unidas code, URLs, credentials or data are included. Highlights: section-level page objects + business flows, per-suite isolated test
 data with guaranteed cleanup, parallel execution with pabot, rerun with merged results,
 environment health gate, Robocop and a GitHub Actions pipeline publishing the report.
