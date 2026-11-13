@@ -15,10 +15,13 @@ configure = [
     "too-long-keyword.max_len=50",
     "too-long-keyword.ignore_docs=True",
     "too-many-calls-in-keyword.max_calls=20",
+    # Fluxos de negocio aceitam varios parametros opcionais com default (loja, grupo, tarifa...).
+    "too-many-arguments.max_args=10",
 ]
-# O nome do cenario ja e a especificacao, escrito como frase completa:
-# documentacao obrigatoria fica so nas keywords.
-ignore = ["DOC02"]
+# DOC02: o nome do cenario ja e a especificacao, escrito como frase completa.
+# ARG07: argumentos opcionais agrupados na mesma linha de continuacao leem melhor.
+# VAR05: massa criada no Suite Setup e compartilhada pelos cenarios da suite, por desenho.
+ignore = ["DOC02", "ARG07", "VAR05"]
 
 [tool.robocop.format]
 configure = ["SplitTooLongLine.line_length=150"]

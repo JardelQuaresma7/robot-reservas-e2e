@@ -5,12 +5,8 @@ Resource         ../common.resource
 
 
 *** Keywords ***
-Web Environment Must Be Up
-    [Documentation]    Aborta a pasta inteira só se o site estiver fora do ar.
-    ${web}    Check Web Is Up    ${WEB_URL}
-    Abort Suite If Environment Is Down    ${web}
-
-Api Environment Must Be Up
-    [Documentation]    Aborta a pasta inteira só se a API de reservas não responder.
-    ${api}    Check Booking Api Is Up    ${API_URL}
-    Abort Suite If Environment Is Down    ${api}
+Ensure Environment Is Healthy
+    [Documentation]    Aborta a pasta inteira só se o front cair ou a cotação quebrar por erro de servidor.
+    ${front}    Check Front Is Up    ${APP_URL}
+    ${quotation}    Check Quotation Chain    ${APP_URL}    ${API_KEY}
+    Abort Suite If Environment Is Down    ${front}    ${quotation}

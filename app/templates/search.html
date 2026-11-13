@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+{% block title %}Consultar reserva - Locadora Demo{% endblock %}
+{% block content %}
+<h1>Consultar reserva</h1>
+<div class="card">
+  <div class="row">
+    <div><label for="filter-number">Número da reserva</label><input id="filter-number"></div>
+    <div><label for="filter-client-doc">CPF do cliente</label><input id="filter-client-doc"></div>
+    <div><label for="filter-driver-doc">Documento do condutor</label><input id="filter-driver-doc"></div>
+    <div><label for="filter-agreement">Acordo</label><select id="filter-agreement"><option value="">Todos</option>
+      {% for code, a in agreements.items() %}<option value="{{ code }}">{{ a.name }}</option>{% endfor %}</select></div>
+  </div>
+  <div class="row">
+    <div><label for="filter-status">Status</label><select id="filter-status"><option value="">Todos</option>
+      <option>Confirmada</option><option>Solicitada</option><option>Cancelada</option></select></div>
+    <div><label for="filter-channel">Canal</label><select id="filter-channel"><option value="">Todos</option>
+      <option>Balcão</option><option>Site</option></select></div>
+    <button type="button" id="btn-pesquisar">Pesquisar</button>
+    <button type="button" class="secondary" id="btn-limpar">Limpar</button>
+  </div>
+  <div class="error" id="search-error"></div>
+</div>
+<table id="results" hidden>
+  <thead><tr><th>Número</th><th>Tipo</th><th>Cliente</th><th>Condutor</th><th>Retirada</th><th>Status</th><th>Ações</th></tr></thead>
+  <tbody></tbody>
+</table>
+<p id="no-results" hidden>Nenhuma reserva encontrada.</p>
+
+<div class="modal-backdrop" id="modal-cancelar"><div class="modal">
+  <h3>Cancelar reserva <span id="cancel-number"></span></h3>
+  <label for="cancel-reason">Motivo</label>
+  <select id="cancel-reason"><option value="">Selecione</option>
+    {% for reason in cancel_reasons %}<option>{{ reason }}</option>{% endfor %}</select>
+  <div class="error" id="cancel-error"></div>
+  <button type="button" id="btn-confirmar-cancelamento">Confirmar cancelamento</button>
+  <button type="button" class="secondary" id="btn-fechar-cancelamento">Fechar</button>
+</div></div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const $ = id => document.getElementById(id);
+const FIELDS = { number: 'filter-number', client_doc: 'filter-client-doc', driver_doc: 'filter-driver-doc',
+                 agreement: 'filter-agreement', status: 'filter-status', channel: 'filter-channel' };
+let cancelling = null;
+
+function row(r) {
+  return `<tr id="row-${r.number}">
+    <td>${r.number}</td><td>${r.type}</td><td>${r.client_name}</td><td>${r.driver.name}</td>
+    <td>${r.pickup_date}</td><td class="status">${r.status}</td>
+    <td>
+      <a class="btn secondary" title="Visualizar" data-action="ver" href="/reservas/${r.number}">Ver</a>
+      ${r.status !== 'Cancelada' ? `<a class="btn secondary" title="Editar" data-action="editar" href="/reservas/${r.number}/editar">Editar</a>` : ''}
+      <button type="button" class="secondary" title="Reenviar e-mail" data-action="email" data-number="${r.number}">E-mail</button>
+      <a class="btn secondary" title="Baixar PDF" data-action="pdf" href="/reservas/${r.number}/pdf">PDF</a>
+      ${r.status !== 'Cancelada' ? `<button type="button" class="secondary" title="Cancelar" data-action="cancelar" data-number="${r.number}">Cancelar</button>` : ''}
+    </td></tr>`;
+}
+
+async function search() {
+  $('search-error').textContent = '';
+  const params = new URLSearchParams();
+  Object.entries(FIELDS).forEach(([k, id]) => { if ($(id).value) params.set(k, $(id).value); });
+  const res = await api('GET', '/api/reservations?' + params.toString());
+  $('results').hidden = true; $('no-results').hidden = true;
+  if (!res.ok) { $('search-error').textContent = res.data.message; return; }
+  if (!res.data.length) { $('no-results').hidden = false; return; }
+  $('results').querySelector('tbody').innerHTML = res.data.map(row).join('');
+  $('results').hidden = false;
+  document.querySelectorAll('[data-action=email]').forEach(b => b.onclick = async () => {
+    const r = await api('POST', `/api/reservations/${b.dataset.number}/resend-email`);
+    if (r.ok) toast(`E-mail da reserva ${b.dataset.number} reenviado para ${r.data.sent_to}.`);
+  });
+  document.querySelectorAll('[data-action=cancelar]').forEach(b => b.onclick = () => {
+    cancelling = b.dataset.number; $('cancel-number').textContent = cancelling;
+    $('cancel-reason').value = ''; $('cancel-error').textContent = ''; openModal('modal-cancelar');
+  });
+}
+$('btn-pesquisar').onclick = search;
+$('btn-limpar').onclick = () => {
+  Object.values(FIELDS).forEach(id => $(id).value = '');
+  $('results').hidden = true; $('no-results').hidden = true; $('search-error').textContent = '';
+};
+$('btn-fechar-cancelamento').onclick = () => closeModal('modal-cancelar');
+$('btn-confirmar-cancelamento').onclick = async () => {
+  const res = await api('POST', `/api/reservations/${cancelling}/cancel`, { reason: $('cancel-reason').value });
+  if (!res.ok) { $('cancel-error').textContent = res.data.message; return; }
+  closeModal('modal-cancelar'); toast(`Reserva ${cancelling} cancelada.`); search();
+};
+</script>
+{% endblock %}

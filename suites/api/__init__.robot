@@ -1,6 +1,8 @@
 *** Settings ***
-Documentation    Suítes de API. O gate de saúde roda uma vez para a pasta inteira.
+Documentation    Contrato e regras da API de reservas, sem navegador.
 
 Resource         ../../resources/common.resource
 
-Suite Setup      Api Environment Must Be Up
+Suite Setup      Ensure Environment Is Healthy
+
+Name             Api

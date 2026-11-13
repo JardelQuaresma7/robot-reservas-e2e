@@ -1,0 +1,424 @@
+{% extends "base.html" %}
+{% block title %}Nova reserva {{ kind }} - Locadora Demo{% endblock %}
+{% block content %}
+<h1 id="page-title">Nova reserva {{ kind }}</h1>
+<div class="layout" data-kind="{{ kind }}">
+<div>
+  <section class="card step" id="step-1">
+    <h2>1. {% if kind == 'PF' %}Cliente{% else %}Acordo{% endif %}</h2>
+    {% if kind == 'PF' %}
+    <div class="row">
+      <div><label for="doc-type">Tipo de documento</label>
+        <select id="doc-type"><option value="CPF">CPF</option><option value="PASSAPORTE">Passaporte</option></select></div>
+      <div><label for="client-doc">Documento do cliente</label><input id="client-doc" autocomplete="off"></div>
+      <button type="button" id="btn-buscar-cliente">Buscar</button>
+    </div>
+    <div id="client-found"></div>
+    {% else %}
+    <div class="row">
+      <div><label for="agreement">Acordo</label>
+        <select id="agreement"><option value="">Selecione</option>
+        {% for code, a in agreements.items() %}<option value="{{ code }}">{{ a.name }}</option>{% endfor %}</select></div>
+    </div>
+    <div id="replacement-fields" hidden>
+      <div class="row">
+        <div><label for="claim-number">Número do sinistro *</label><input id="claim-number"></div>
+        <div><label for="external-reservation">Reserva externa (opcional)</label><input id="external-reservation"></div>
+      </div>
+    </div>
+    {% endif %}
+    <div class="error" id="step-1-error"></div>
+    <button type="button" id="btn-avancar-1">Avançar</button>
+  </section>
+
+  <section class="card step locked" id="step-2">
+    <h2>2. Lojas e período</h2>
+    <div class="row">
+      <div><label for="pickup-store">Loja de retirada</label><select id="pickup-store"><option value="">Selecione</option>
+        {% for code, s in stores.items() %}<option value="{{ code }}">{{ s.name }}</option>{% endfor %}</select></div>
+      <div><label for="return-store">Loja de devolução</label><select id="return-store"><option value="">Selecione</option>
+        {% for code, s in stores.items() %}<option value="{{ code }}">{{ s.name }}</option>{% endfor %}</select></div>
+    </div>
+    <div class="row">
+      <div><label for="pickup-date">Retirada</label><input type="date" id="pickup-date"></div>
+      <div><label for="return-date">Devolução</label><input type="date" id="return-date"></div>
+      {% if kind == 'PF' %}
+      <div><label for="rate">Tarifa</label><select id="rate">
+        {% for code, r in rates.items() %}<option value="{{ code }}">{{ r.name }}</option>{% endfor %}</select></div>
+      {% endif %}
+    </div>
+    <div id="monthly-info"></div>
+    <div class="error" id="step-2-error"></div>
+    <button type="button" id="btn-avancar-2">Avançar</button>
+  </section>
+
+  <section class="card step locked" id="step-3">
+    <h2>3. Grupo</h2>
+    <div class="groups">
+      {% for code, g in groups.items() %}
+      <label class="group-card" id="group-card-{{ code }}">
+        <input type="radio" name="group" value="{{ code }}"> <strong>{{ g.name }}</strong>
+        <div>Diária R$ {{ '%.2f'|format(g.daily) }}</div>
+        <span class="badge danger" id="group-sold-out-{{ code }}" hidden>Esgotado nesta loja</span>
+      </label>
+      {% endfor %}
+    </div>
+    <div class="error" id="step-3-error"></div>
+    <button type="button" id="btn-avancar-3">Avançar</button>
+  </section>
+
+  <section class="card step locked" id="step-4">
+    <h2>4. Proteções e acessórios</h2>
+    {% for code, p in protections.items() %}
+    <label><input type="checkbox" name="protection" value="{{ code }}"> {{ p.name }} (R$ {{ '%.2f'|format(p.daily) }}/dia)</label>
+    {% endfor %}
+    <hr>
+    {% for code, a in accessories.items() %}
+    <label><input type="checkbox" name="accessory" value="{{ code }}"> {{ a.name }} (R$ {{ '%.2f'|format(a.daily) }}/dia)</label>
+    {% endfor %}
+    <div class="error" id="step-4-error"></div>
+    <button type="button" id="btn-avancar-4" disabled>Avançar</button>
+  </section>
+
+  <section class="card step locked" id="step-5">
+    <h2>5. Condutor e motoristas adicionais</h2>
+    {% if kind == 'PF' %}
+    <label><input type="checkbox" id="driver-is-client" checked> O condutor é o próprio cliente</label>
+    {% endif %}
+    <div id="driver-fields" {% if kind == 'PF' %}hidden{% endif %}>
+      <div class="row">
+        <div><label for="driver-doc-type">Documento do condutor</label>
+          <select id="driver-doc-type"><option value="CPF">CPF</option><option value="PASSAPORTE">Passaporte</option></select></div>
+        <div><label for="driver-doc">Número</label><input id="driver-doc"></div>
+        <div><label for="driver-name">Nome do condutor</label><input id="driver-name"></div>
+      </div>
+    </div>
+    <div class="row">
+      <div><label for="additional-driver-doc">CPF do motorista adicional</label><input id="additional-driver-doc"></div>
+      <button type="button" class="secondary" id="btn-add-driver">Adicionar</button>
+    </div>
+    <ul id="additional-drivers"></ul>
+    <div class="error" id="step-5-error"></div>
+    <button type="button" id="btn-avancar-5">Avançar</button>
+  </section>
+
+  <section class="card step locked" id="step-6">
+    <h2>6. Contato</h2>
+    <div class="row">
+      <div><label for="contact-phone">Telefone *</label><input id="contact-phone"></div>
+      <div><label for="contact-email">E-mail</label><input id="contact-email"></div>
+    </div>
+    <label><input type="checkbox" id="secondary-toggle"> Enviar cópia para outro e-mail</label>
+    <input id="secondary-email" placeholder="outro@email.com" disabled>
+    <div class="error" id="step-6-error"></div>
+    <button type="button" id="btn-reservar">Reservar</button>
+  </section>
+</div>
+
+<aside class="card summary" id="summary">
+  <h2>Resumo</h2>
+  <dl>
+    <dt>Cliente</dt><dd id="summary-cliente">-</dd>
+    <dt>Documento</dt><dd id="summary-documento">-</dd>
+    <dt>Período</dt><dd id="summary-periodo">-</dd>
+    <dt>Tarifa</dt><dd id="summary-tarifa">-</dd>
+    <dt>Grupo</dt><dd id="summary-grupo">-</dd>
+    <dt>Diárias</dt><dd id="summary-diarias">-</dd>
+    <dt>Proteções</dt><dd id="summary-protecoes">-</dd>
+    <dt>Acessórios</dt><dd id="summary-acessorios">-</dd>
+    <dt>Motoristas adicionais</dt><dd id="summary-motoristas">-</dd>
+    <dt>Valor motoristas</dt><dd id="summary-motoristas-valor">-</dd>
+    <dt><strong>Total</strong></dt><dd><strong id="summary-total">-</strong></dd>
+  </dl>
+</aside>
+</div>
+
+<div class="modal-backdrop" id="modal-grupo"><div class="modal">
+  <h3>Grupo selecionado indisponível</h3>
+  <p>O grupo escolhido está esgotado na loja de retirada. Você pode forçar a reserva ou registrar uma solicitação.</p>
+  <button type="button" id="btn-forcar">Forçar reserva</button>
+  <button type="button" class="secondary" id="btn-solicitar">Solicitar</button>
+</div></div>
+
+<div class="modal-backdrop" id="modal-reserva-ativa"><div class="modal">
+  <h3>Reserva ativa no período</h3>
+  <p id="modal-reserva-ativa-texto"></p>
+  <button type="button" id="btn-continuar-mesmo-assim">Continuar mesmo assim</button>
+  <button type="button" class="secondary" id="btn-voltar">Voltar</button>
+</div></div>
+
+<div class="modal-backdrop" id="modal-rascunho"><div class="modal">
+  <h3>Reserva em andamento</h3>
+  <p>Você começou uma reserva e não terminou. Quer continuar de onde parou?</p>
+  <button type="button" id="btn-continuar-rascunho">Continuar</button>
+  <button type="button" class="secondary" id="btn-descartar-rascunho">Descartar</button>
+</div></div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const KIND = '{{ kind }}';
+const DRAFT_KEY = 'rascunho-' + KIND;
+const STORES = {{ stores | tojson }};
+const AGREEMENTS = {{ agreements | tojson }};
+const $ = id => document.getElementById(id);
+const state = { client: null, maxStep: 1, drivers: [], restoring: false };
+
+function digits(v) { return String(v || '').replace(/\D/g, ''); }
+function validCpf(v) {
+  const c = digits(v);
+  if (c.length !== 11 || /^(\d)\1+$/.test(c)) return false;
+  for (const size of [9, 10]) {
+    let total = 0;
+    for (let i = 0; i < size; i++) total += Number(c[i]) * (size + 1 - i);
+    if ((total * 10 % 11) % 10 !== Number(c[size])) return false;
+  }
+  return true;
+}
+function validDoc(type, v) { return type === 'PASSAPORTE' ? /^[A-Z]{2}\d{6}$/.test(String(v || '').trim().toUpperCase()) : validCpf(v); }
+const validEmail = v => /^[^@\s]+@[^@\s]+\.[a-zA-Z]{2,}$/.test(v);
+const checked = name => [...document.querySelectorAll(`input[name=${name}]:checked`)].map(i => i.value);
+const selectedGroup = () => (document.querySelector('input[name=group]:checked') || {}).value || '';
+
+function unlock(step) {
+  for (let s = 2; s <= 6; s++) $('step-' + s).classList.toggle('locked', s > step);
+  state.maxStep = Math.max(state.maxStep, step);
+}
+function resetSteps() {
+  state.maxStep = 1;
+  for (let s = 2; s <= 6; s++) $('step-' + s).classList.add('locked');
+  $('secondary-toggle').checked = false; toggleSecondary();
+  localStorage.removeItem(DRAFT_KEY);
+}
+
+function payload(extra) {
+  const driverIsClient = KIND === 'PF' && $('driver-is-client').checked;
+  const body = {
+    type: KIND, pickup_store: $('pickup-store').value, return_store: $('return-store').value,
+    pickup_date: $('pickup-date').value, return_date: $('return-date').value, group: selectedGroup(),
+    protections: checked('protection'), accessories: checked('accessory'),
+    additional_drivers: state.drivers.slice(),
+    driver: driverIsClient && state.client
+      ? { doc_type: state.client.doc_type, doc: state.client.doc, name: state.client.first_name + ' ' + state.client.last_name }
+      : { doc_type: $('driver-doc-type').value, doc: $('driver-doc').value, name: $('driver-name').value },
+    contact: { phone: $('contact-phone').value, email: $('contact-email').value,
+               secondary_email: $('secondary-toggle').checked ? $('secondary-email').value : null },
+  };
+  if (KIND === 'PF') { body.client_id = state.client && state.client.id; body.rate = $('rate').value; }
+  else {
+    body.agreement = $('agreement').value;
+    body.claim_number = $('claim-number').value; body.external_reservation = $('external-reservation').value;
+  }
+  return Object.assign(body, extra || {});
+}
+
+async function refreshSummary() {
+  if (KIND === 'PF') {
+    $('summary-cliente').textContent = state.client ? state.client.first_name + ' ' + state.client.last_name : '-';
+    $('summary-documento').textContent = state.client
+      ? (state.client.doc_type === 'PASSAPORTE' ? 'Passaporte ' : 'CPF ') + state.client.doc : '-';
+  } else {
+    const a = AGREEMENTS[$('agreement').value];
+    $('summary-cliente').textContent = a ? a.name : '-';
+    $('summary-documento').textContent = a ? 'CNPJ ' + a.cnpj : '-';
+  }
+  const p = payload();
+  if (!p.pickup_date || !p.return_date || p.return_date <= p.pickup_date || (KIND === 'PJ' && !p.agreement)) return;
+  if (!p.group) p.group = 'A';
+  const res = await api('POST', '/api/quotation', p);
+  if (!res.ok) return;
+  const q = res.data;
+  $('summary-periodo').textContent = q.days + (q.days === 1 ? ' diária' : ' diárias');
+  $('summary-tarifa').textContent = q.rate_name;
+  $('summary-grupo').textContent = selectedGroup() ? q.group_name : '-';
+  $('summary-diarias').textContent = money(q.daily_total);
+  $('summary-protecoes').textContent = money(q.protections_total);
+  $('summary-acessorios').textContent = money(q.accessories_total);
+  $('summary-motoristas').textContent = `${q.drivers_exempt} isento(s), ${q.drivers_charged} cobrado(s)`;
+  $('summary-motoristas-valor').textContent = money(q.drivers_total);
+  $('summary-total').textContent = money(q.total);
+  if (KIND === 'PF') {
+    const monthly = q.rate === 'MENSAL';
+    $('rate').disabled = monthly;
+    if (monthly) $('rate').value = 'MENSAL';
+    else if ($('rate').value === 'MENSAL') $('rate').value = 'LIVRE';
+    $('monthly-info').textContent = monthly ? 'Tarifa mensal aplicada: 28 diárias ou mais.' : '';
+  }
+}
+
+function markSoldOut() {
+  const down = (STORES[$('pickup-store').value] || {}).unavailable_groups || [];
+  document.querySelectorAll('input[name=group]').forEach(r => {
+    const out = down.includes(r.value);
+    $('group-sold-out-' + r.value).hidden = !out;
+    $('group-card-' + r.value).classList.toggle('sold-out', out);
+  });
+}
+
+// ------------------------------------------------------------ rascunho
+function saveDraft() {
+  if (state.restoring || state.maxStep < 2) return;
+  const fields = {};
+  document.querySelectorAll('input, select').forEach(el => {
+    if (!el.id) return;
+    fields[el.id] = el.type === 'checkbox' ? el.checked : el.value;
+  });
+  localStorage.setItem(DRAFT_KEY, JSON.stringify({
+    fields, maxStep: state.maxStep, group: selectedGroup(), protections: checked('protection'),
+    accessories: checked('accessory'), drivers: state.drivers, client: state.client,
+  }));
+}
+async function restoreDraft(draft) {
+  state.restoring = true;
+  Object.entries(draft.fields).forEach(([id, v]) => {
+    const el = $(id); if (!el) return;
+    if (el.type === 'checkbox') el.checked = v; else el.value = v;
+  });
+  document.querySelectorAll('input[name=group]').forEach(r => r.checked = r.value === draft.group);
+  document.querySelectorAll('input[name=protection]').forEach(c => c.checked = draft.protections.includes(c.value));
+  document.querySelectorAll('input[name=accessory]').forEach(c => c.checked = draft.accessories.includes(c.value));
+  state.client = draft.client; state.drivers = draft.drivers || [];
+  if (KIND === 'PF' && state.client) showClient(state.client);
+  if (KIND === 'PJ') toggleReplacement();
+  renderDrivers(); toggleSecondary(); toggleDriverFields(); markSoldOut();
+  $('btn-avancar-4').disabled = checked('protection').length === 0;
+  unlock(draft.maxStep);
+  state.restoring = false;
+  await refreshSummary();
+}
+
+// ------------------------------------------------------------ passo 1
+function showClient(c) {
+  $('client-found').textContent = `Cliente: ${c.first_name} ${c.last_name}`;
+  if (!$('contact-email').value) $('contact-email').value = c.email || '';
+  if (!$('contact-phone').value) $('contact-phone').value = c.phone || '';
+}
+if (KIND === 'PF') {
+  $('btn-buscar-cliente').onclick = async () => {
+    $('step-1-error').textContent = ''; $('client-found').textContent = ''; state.client = null;
+    const type = $('doc-type').value, doc = $('client-doc').value;
+    if (!validDoc(type, doc)) { $('step-1-error').textContent = type === 'CPF' ? 'CPF inválido.' : 'Passaporte inválido.'; return; }
+    const res = await api('GET', `/api/clients?doc_type=${type}&doc=${encodeURIComponent(doc)}`);
+    if (!res.ok) { $('step-1-error').textContent = 'Cliente não cadastrado.'; return; }
+    state.client = res.data; showClient(res.data); refreshSummary();
+  };
+  ['client-doc', 'doc-type'].forEach(id => $(id).addEventListener('input', () => {
+    state.client = null; $('client-found').textContent = '';
+    $('contact-email').value = ''; $('contact-phone').value = '';
+    if (state.maxStep > 1) resetSteps();
+    refreshSummary();
+  }));
+} else {
+  window.toggleReplacement = () => { const a = AGREEMENTS[$('agreement').value]; $('replacement-fields').hidden = !(a && a.replacement); };
+  $('agreement').addEventListener('change', () => { toggleReplacement(); refreshSummary(); });
+}
+function toggleReplacement() { if (KIND === 'PJ') window.toggleReplacement(); }
+
+$('btn-avancar-1').onclick = () => {
+  $('step-1-error').textContent = '';
+  if (KIND === 'PF' && !state.client) { $('step-1-error').textContent = 'Busque um cliente cadastrado para continuar.'; return; }
+  if (KIND === 'PJ') {
+    const a = AGREEMENTS[$('agreement').value];
+    if (!a) { $('step-1-error').textContent = 'Selecione o acordo.'; return; }
+    if (a.replacement && !$('claim-number').value.trim()) { $('step-1-error').textContent = 'Informe o número do sinistro.'; return; }
+  }
+  unlock(2); saveDraft();
+};
+
+// ------------------------------------------------------------ passos 2 a 5
+$('btn-avancar-2').onclick = () => {
+  $('step-2-error').textContent = '';
+  const p = payload();
+  if (!p.pickup_store || !p.return_store) { $('step-2-error').textContent = 'Selecione as lojas.'; return; }
+  if (!p.pickup_date || !p.return_date || p.return_date <= p.pickup_date) { $('step-2-error').textContent = 'A devolução precisa ser depois da retirada.'; return; }
+  markSoldOut(); unlock(3); saveDraft();
+};
+$('pickup-store').addEventListener('change', markSoldOut);
+$('btn-avancar-3').onclick = () => {
+  $('step-3-error').textContent = '';
+  if (!selectedGroup()) { $('step-3-error').textContent = 'Selecione um grupo.'; return; }
+  unlock(4); saveDraft();
+};
+document.querySelectorAll('input[name=protection]').forEach(c => c.addEventListener('change', () => {
+  $('btn-avancar-4').disabled = checked('protection').length === 0;
+}));
+$('btn-avancar-4').onclick = () => { unlock(5); saveDraft(); };
+
+function toggleDriverFields() { if (KIND === 'PF') $('driver-fields').hidden = $('driver-is-client').checked; }
+if (KIND === 'PF') $('driver-is-client').addEventListener('change', toggleDriverFields);
+
+function renderDrivers() {
+  $('additional-drivers').innerHTML = state.drivers.map((d, i) =>
+    `<li>${d} <button type="button" class="secondary" data-remove="${i}">Remover</button></li>`).join('');
+  document.querySelectorAll('[data-remove]').forEach(b => b.onclick = () => {
+    state.drivers.splice(Number(b.dataset.remove), 1); renderDrivers(); refreshSummary(); saveDraft();
+  });
+}
+$('btn-add-driver').onclick = () => {
+  $('step-5-error').textContent = '';
+  const doc = digits($('additional-driver-doc').value);
+  const main = payload().driver;
+  if (!validCpf(doc)) { $('step-5-error').textContent = 'CPF do motorista adicional inválido.'; return; }
+  if (state.drivers.includes(doc) || digits(main.doc) === doc) { $('step-5-error').textContent = 'Motorista já informado nesta reserva.'; return; }
+  state.drivers.push(doc); $('additional-driver-doc').value = ''; renderDrivers(); refreshSummary(); saveDraft();
+};
+$('btn-avancar-5').onclick = () => {
+  $('step-5-error').textContent = '';
+  const d = payload().driver;
+  if (!validDoc(d.doc_type, d.doc)) { $('step-5-error').textContent = 'Documento do condutor inválido.'; return; }
+  if (!d.name || !d.name.trim()) { $('step-5-error').textContent = 'Informe o nome do condutor.'; return; }
+  unlock(6); saveDraft();
+};
+
+// ------------------------------------------------------------ passo 6
+function toggleSecondary() {
+  const on = $('secondary-toggle').checked;
+  $('secondary-email').disabled = !on;
+  if (!on) $('secondary-email').value = '';
+}
+$('secondary-toggle').addEventListener('change', toggleSecondary);
+
+async function submit(extra) {
+  $('step-6-error').textContent = '';
+  const p = payload(extra);
+  if (!digits(p.contact.phone)) { $('step-6-error').textContent = 'Informe o telefone de contato.'; return; }
+  if ($('secondary-toggle').checked && !validEmail($('secondary-email').value)) {
+    $('step-6-error').textContent = 'E-mail secundário inválido.'; return;
+  }
+  const res = await api('POST', '/api/reservations', p);
+  if (res.ok) { localStorage.removeItem(DRAFT_KEY); window.location = `/reservas/${res.data.number}?nova=1`; return; }
+  const code = res.data && res.data.code;
+  if (code === 'GROUP_UNAVAILABLE') { state.pending = p; openModal('modal-grupo'); return; }
+  if (code === 'ACTIVE_RESERVATION') {
+    state.pending = p; $('modal-reserva-ativa-texto').textContent = res.data.message; openModal('modal-reserva-ativa'); return;
+  }
+  $('step-6-error').textContent = (res.data && res.data.message) || 'Não foi possível reservar.';
+}
+$('btn-reservar').onclick = () => submit();
+$('btn-forcar').onclick = () => { closeModal('modal-grupo'); state.extra = Object.assign({}, state.extra, { unavailable_action: 'FORCAR' }); submit(state.extra); };
+$('btn-solicitar').onclick = () => { closeModal('modal-grupo'); state.extra = Object.assign({}, state.extra, { unavailable_action: 'SOLICITAR' }); submit(state.extra); };
+$('btn-continuar-mesmo-assim').onclick = () => { closeModal('modal-reserva-ativa'); state.extra = Object.assign({}, state.extra, { confirm_overlap: true }); submit(state.extra); };
+$('btn-voltar').onclick = () => closeModal('modal-reserva-ativa');
+
+// ------------------------------------------------------------ eventos gerais
+document.querySelectorAll('input, select').forEach(el => el.addEventListener('change', () => {
+  refreshSummary(); saveDraft();
+}));
+
+(async () => {
+  const params = new URLSearchParams(window.location.search);
+  if (KIND === 'PF' && params.get('doc')) {
+    $('doc-type').value = params.get('doc_type') || 'CPF';
+    $('client-doc').value = params.get('doc');
+    await $('btn-buscar-cliente').onclick();
+  }
+  const raw = localStorage.getItem(DRAFT_KEY);
+  if (raw) {
+    openModal('modal-rascunho');
+    $('btn-continuar-rascunho').onclick = async () => { closeModal('modal-rascunho'); await restoreDraft(JSON.parse(raw)); };
+    $('btn-descartar-rascunho').onclick = () => { localStorage.removeItem(DRAFT_KEY); closeModal('modal-rascunho'); };
+  }
+  refreshSummary();
+})();
+</script>
+{% endblock %}

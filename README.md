@@ -6,67 +6,95 @@
 ![Python](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)
 ![Robocop](https://img.shields.io/badge/Robocop-0%20apontamentos-brightgreen)
 
-Regressão automatizada de um **fluxo de reservas** — interface e API — com a mesma arquitetura
-que eu criei e mantenho num sistema de reservas de uma grande locadora de veículos.
-Lá, a suíte tem **62 cenários E2E em 17 suítes** e levou a regressão de **6 horas (manual) para
-cerca de 30 minutos**. Como o código do cliente não pode ser público, este repositório replica a
-arquitetura contra sistemas públicos de prática:
+Regressão automatizada de uma **central de reservas de locadora de veículos**: reserva PF e PJ,
+edição, consulta, cancelamento, motorista adicional, grupo indisponível, rascunho, cadastro de
+cliente e API.
 
-| Camada | Sistema testado |
-|---|---|
-| Interface (SeleniumLibrary) | [BlazeDemo](https://blazedemo.com) — pesquisa, escolha de voo, passageiro, pagamento e confirmação |
-| API (requests + Python) | [Restful-Booker](https://restful-booker.herokuapp.com) — ciclo de vida da reserva com autenticação por token |
+**De onde vem:** eu criei e mantenho, como QA Sênior, a regressão automatizada do sistema de
+reservas de uma grande locadora — **62 cenários E2E em 17 suítes**, que levou a regressão de
+**6 horas (manual) para cerca de 30 minutos** no pipeline. O código do cliente não pode ser
+público, então este repositório traz **a mesma arquitetura e o mesmo catálogo de cenários**
+rodando contra a **Locadora Demo** (`app/`), um sistema de reservas pequeno que eu escrevi só
+para ser o alvo dos testes. Nenhum código, URL ou dado do cliente está aqui.
 
-## O que este projeto demonstra
+## Catálogo de cenários (69)
 
-- **Page Objects por tela** e uma camada de **fluxos de negócio**: a suíte diz *o quê*, o fluxo
-  esconde *o como* (`resources/page_objects` → `resources/flows` → `suites`).
-- **Gate de saúde do ambiente** antes da bateria (`environment_health.py`): aborta só por causa
-  externa (site/API fora do ar). Resposta estranha de um sistema no ar vira *WARN*, porque defeito
-  tem que aparecer como cenário vermelho, não como aborto silencioso.
-- **Retentativa de HTTP centralizada** (`http_retry.py`) e **limpeza garantida da massa**: toda reserva
-  criada pela API é registrada e apagada no `Suite Teardown`, mesmo quando o cenário falha.
-- **Massa dinâmica com Faker** (`data_factory.py`): cada execução usa passageiros e reservas novos.
-- **Execução paralela com pabot**, **reexecução só dos vermelhos** e **merge dos resultados**
-  (`scripts/run_regression.py`): o cenário instável aparece verde *com a falha anterior registrada*.
-- **Cenários negativos de segurança** na API: escrita sem token, login inválido, id inexistente.
-- **Padrão de código com Robocop** (lint + format) rodando como primeira etapa da esteira.
-- **Esteira no GitHub Actions**: lint → regressão → relatório publicado no GitHub Pages,
-  com execução agendada nos dias úteis e disparo manual filtrando por tag.
+| Suíte | Cenários | O que cobre |
+|---|---:|---|
+| Reserva PF - Criação | 1 | Caminho feliz completo, resumo x detalhe |
+| Reserva PF - Ciclo completo | 1 | Cria → confere → edita com acessório (total sobe) → cancela pela consulta |
+| Reserva PF mensal - Ciclo completo | 1 | 30 diárias viram tarifa Mensal com desconto; edita e cancela |
+| Reserva PF - Condutor diferente | 2 | Cliente paga, outra pessoa dirige |
+| Reserva PF - E-mail secundário | 6 | Toggle habilita, valida, reseta, grava e zera ao trocar o CPF |
+| Reserva PF - Motorista adicional | 2 | Tarifa isenta 1 motorista; excedente cobrado no resumo e no detalhe |
+| Reserva PF - Passaporte | 2 | Cliente estrangeiro identificado pelo passaporte |
+| Reserva PF - Rascunho | 6 | Modal de reserva em andamento: continuar, descartar, quando não aparece |
+| Reserva PF - Validações | 6 | CPF inválido, reset dos passos, motorista duplicado, proteção obrigatória, telefone, reserva ativa no período |
+| Reserva PJ - Criação | 1 | Acordo corporativo com desconto |
+| Reserva PJ - Ciclo completo | 1 | Cria → troca de grupo (total sobe) → cancela |
+| Reserva PJ - Motorista adicional | 2 | Acordo isenta 2; o terceiro é cobrado |
+| Reserva PJ - Condutor com passaporte | 2 | Condutor estrangeiro do acordo |
+| Reserva PJ - Acordo replacement | 3 | Sinistro obrigatório, reserva externa opcional, flag de carro reserva |
+| Grupo indisponível (PF e PJ) | 6 | Modal na criação (forçar / solicitar) e edição de confirmada sem modal |
+| Consulta de reserva | 12 | Filtros (número, CPF, condutor, acordo, status) e ações (ver, editar, e-mail, PDF, cancelar) |
+| Cadastro de cliente PF | 8 | CPF, passaporte, estrangeiro, CEP, termos, obrigatórios, duplicado, cadastrar e reservar |
+| API de reservas | 7 | Cálculo de preço, tarifa mensal, regras 409/422, chave de API, 404 |
 
-## Estrutura
+## Arquitetura
+
+- **Page Objects por seção do formulário** (`resources/page_objects/reserve/form/*`: cliente, lojas,
+  grupo, proteções, condutor, contato) e **fluxos de negócio** por cima (`resources/flows`):
+  a suíte diz *o quê*, o fluxo esconde *o como*.
+- **Massa isolada por suíte:** cada suíte cria o próprio cliente pela API no `Suite Setup` e apaga
+  tudo no `Suite Teardown` (`reservation_api.py`), inclusive o que sobrou de cenário que falhou.
+  Por isso as suítes rodam **em paralelo** sem uma bloquear a reserva da outra.
+- **Conferência por dado capturado, não por valor fixo:** o ciclo completo fotografa o resumo antes
+  de reservar e compara com o detalhe gravado.
+- **Gate de saúde** (`environment_health.py`): antes da bateria, confere o front e faz a mesma
+  cotação da tela. Só aborta por causa externa; resposta estranha vira *WARN*, porque defeito tem
+  que aparecer como cenário vermelho.
+- **Retentativa de HTTP centralizada** (`http_retry.py`) e **massa dinâmica com Faker**
+  (CPF válido, passaporte, nomes).
+- **pabot + rerun dos vermelhos + merge** (`scripts/run_regression.py`): o instável aparece verde
+  com a primeira falha registrada no log, nunca escondida.
+- **Robocop** (lint + format) como primeira etapa da esteira; as exceções de regra estão
+  justificadas no `robocop.toml`.
+- **GitHub Actions:** lint → sobe a Locadora Demo → regressão → relatório no GitHub Pages;
+  agendada nos dias úteis e com disparo manual por tag (ex.: `smoke`).
 
 ```
+app/                          # Locadora Demo (FastAPI + Jinja): só o alvo dos testes
 resources/
-  common.resource            # ponto único de import
-  variables/                 # URLs, timeout, credenciais (sobrescrevíveis por --variable / env)
-  keywords/                  # navegador e gate de saúde
-  libraries/                 # Python: API de reservas, saúde, retentativa, massa
-  page_objects/              # home, voos, compra, confirmação
-  flows/                     # fluxo de reserva de ponta a ponta
+  common.resource             # ponto único de import
+  variables/                  # URL, chave, lojas e grupos de teste (sobrescrevíveis)
+  keywords/                   # navegador, gate de saúde, ações genéricas de UI
+  libraries/                  # Python: API/limpeza, saúde, retentativa, massa
+  page_objects/reserve/       # form/, shared/, details/, update/, search/
+  page_objects/client/        # cadastro de cliente
+  flows/                      # reserva PF e PJ de ponta a ponta
 suites/
-  web/                       # ciclo completo e validações de tela
-  api/                       # ciclo de vida da reserva e segurança
-scripts/run_regression.py    # pabot + rerun + rebot --merge + xunit
+  reserva/  cliente/  api/
+scripts/run_regression.py     # pabot + rerun + rebot --merge + xunit
 ```
 
 ## Como rodar
 
 ```bash
 pip install -r requirements.txt
-python scripts/run_regression.py                    # bateria completa
-python scripts/run_regression.py --include smoke    # só o smoke
-robot --pythonpath resources/libraries --variable HEADLESS:False suites/web   # ver o navegador
-robocop check                                       # padrão de código
+python -m uvicorn main:app --app-dir app --port 8000        # sobe a Locadora Demo
+python scripts/run_regression.py                            # bateria completa (~1 min)
+python scripts/run_regression.py --include smoke            # smoke
+robot --pythonpath resources/libraries --variable HEADLESS:False suites/reserva/reserva_pf_criacao.robot
+robocop check
 ```
-
-Relatórios em `results/` (`report.html`, `log.html`, `xunit.xml`).
 
 ---
 
-**EN —** End-to-end regression of a reservation flow (UI + API) in Robot Framework and Python,
-replicating the architecture I built for a large car-rental company's reservation system
-(62 E2E scenarios, regression cut from 6 h to ~30 min). Highlights: page objects + business flows,
-environment health gate, centralized HTTP retry, guaranteed test-data cleanup, Faker data,
-parallel run with pabot, rerun of failed tests with merged results, Robocop lint and a GitHub
-Actions pipeline publishing the report to GitHub Pages.
+**EN —** End-to-end regression of a car-rental reservation system in Robot Framework and Python:
+individual and corporate reservations, update, search, cancellation, additional drivers,
+sold-out car groups, drafts, customer registration and API rules — 69 scenarios. It mirrors the
+architecture and scenario catalogue I built for a large car-rental company (62 E2E scenarios in
+17 suites, regression cut from 6 h to ~30 min), running against a small demo app written only as
+the test target. Highlights: section-level page objects + business flows, per-suite isolated test
+data with guaranteed cleanup, parallel execution with pabot, rerun with merged results,
+environment health gate, Robocop and a GitHub Actions pipeline publishing the report.

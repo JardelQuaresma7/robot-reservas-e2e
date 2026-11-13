@@ -48,10 +48,18 @@ jobs:
       - run: pip install -r requirements.txt
       - uses: browser-actions/setup-chrome@v1
 
+      - name: Subir o sistema alvo (Locadora Demo)
+        run: |
+          nohup python -m uvicorn main:app --app-dir app --port 8000 > app.log 2>&1 &
+          for i in $(seq 1 30); do
+            curl -sf http://127.0.0.1:8000/api/health && exit 0
+            sleep 1
+          done
+          cat app.log; exit 1
+
       - name: Rodar bateria (paralelo + rerun dos vermelhos)
         env:
-          BOOKER_USER: ${{ secrets.BOOKER_USER || 'admin' }}
-          BOOKER_PASSWORD: ${{ secrets.BOOKER_PASSWORD || 'password123' }}
+          APP_URL: http://127.0.0.1:8000
         run: |
           ARGS=""
           if [ -n "${{ github.event.inputs.include }}" ]; then ARGS="--include ${{ github.event.inputs.include }}"; fi
@@ -71,7 +79,9 @@ jobs:
         if: always()
         with:
           name: resultados-robot
-          path: results/
+          path: |
+            results/
+            app.log
 
       - name: Preparar Pages
         if: always() && github.ref == 'refs/heads/main'

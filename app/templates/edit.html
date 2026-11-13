@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% block title %}Editar reserva {{ r.number }} - Locadora Demo{% endblock %}
+{% block content %}
+<h1>Editar reserva <span id="edit-number">{{ r.number }}</span> ({{ r.type }})</h1>
+<div class="layout">
+<div class="card">
+  <div class="row">
+    <div><label for="pickup-store">Loja de retirada</label><select id="pickup-store">
+      {% for code, s in stores.items() %}<option value="{{ code }}" {% if code == r.pickup_store %}selected{% endif %}>{{ s.name }}</option>{% endfor %}</select></div>
+    <div><label for="return-store">Loja de devolução</label><select id="return-store">
+      {% for code, s in stores.items() %}<option value="{{ code }}" {% if code == r.return_store %}selected{% endif %}>{{ s.name }}</option>{% endfor %}</select></div>
+  </div>
+  <div class="row">
+    <div><label for="pickup-date">Retirada</label><input type="date" id="pickup-date" value="{{ r.pickup_date }}"></div>
+    <div><label for="return-date">Devolução</label><input type="date" id="return-date" value="{{ r.return_date }}"></div>
+    <div><label for="group">Grupo</label><select id="group">
+      {% for code, g in groups.items() %}<option value="{{ code }}" {% if code == r.group %}selected{% endif %}>{{ g.name }}</option>{% endfor %}</select></div>
+  </div>
+  <h3>Proteções</h3>
+  {% for code, p in protections.items() %}
+  <label><input type="checkbox" name="protection" value="{{ code }}" {% if code in r.protections %}checked{% endif %}> {{ p.name }}</label>
+  {% endfor %}
+  <h3>Acessórios</h3>
+  {% for code, a in accessories.items() %}
+  <label><input type="checkbox" name="accessory" value="{{ code }}" {% if code in r.accessories %}checked{% endif %}> {{ a.name }}</label>
+  {% endfor %}
+  <div class="error" id="edit-error"></div>
+  <button type="button" id="btn-salvar">Salvar alterações</button>
+  <a class="btn secondary" href="/reservas/{{ r.number }}">Cancelar edição</a>
+</div>
+<aside class="card summary">
+  <h2>Resumo</h2>
+  <dl>
+    <dt>Total atual</dt><dd id="edit-total-atual">R$ {{ '%.2f'|format(r.price.total)|replace('.', ',') }}</dd>
+    <dt>Novo total</dt><dd id="edit-total-novo">-</dd>
+  </dl>
+</aside>
+</div>
+
+<div class="modal-backdrop" id="modal-grupo"><div class="modal">
+  <h3>Grupo selecionado indisponível</h3>
+  <p>O grupo escolhido está esgotado na loja de retirada.</p>
+  <button type="button" id="btn-forcar">Forçar reserva</button>
+  <button type="button" class="secondary" id="btn-solicitar">Solicitar</button>
+</div></div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const R = {{ r | tojson }};
+const $ = id => document.getElementById(id);
+const checked = name => [...document.querySelectorAll(`input[name=${name}]:checked`)].map(i => i.value);
+function body(extra) {
+  return Object.assign({
+    pickup_store: $('pickup-store').value, return_store: $('return-store').value,
+    pickup_date: $('pickup-date').value, return_date: $('return-date').value, group: $('group').value,
+    protections: checked('protection'), accessories: checked('accessory'),
+  }, extra || {});
+}
+async function refresh() {
+  const res = await api('POST', '/api/quotation', Object.assign({}, R, body()));
+  if (res.ok) $('edit-total-novo').textContent = money(res.data.total);
+}
+document.querySelectorAll('input, select').forEach(el => el.addEventListener('change', refresh));
+async function save(extra) {
+  $('edit-error').textContent = '';
+  const res = await api('PUT', `/api/reservations/${R.number}`, body(extra));
+  if (res.ok) { window.location = `/reservas/${R.number}`; return; }
+  if (res.data && res.data.code === 'GROUP_UNAVAILABLE') { openModal('modal-grupo'); return; }
+  $('edit-error').textContent = (res.data && res.data.message) || 'Não foi possível salvar.';
+}
+$('btn-salvar').onclick = () => save();
+$('btn-forcar').onclick = () => { closeModal('modal-grupo'); save({ unavailable_action: 'FORCAR' }); };
+$('btn-solicitar').onclick = () => { closeModal('modal-grupo'); save({ unavailable_action: 'SOLICITAR' }); };
+refresh();
+</script>
+{% endblock %}

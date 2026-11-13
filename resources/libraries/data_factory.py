@@ -1,5 +1,7 @@
-"""Massa de teste gerada na hora com Faker: cada execução usa dados novos e independentes."""
+"""Massa de teste gerada na hora com Faker: cada execução usa clientes e documentos novos."""
 
+import random
+import string
 from datetime import date, timedelta
 
 from faker import Faker
@@ -7,40 +9,45 @@ from robot.api.deco import keyword, library
 
 _fake = Faker("pt_BR")
 
-# Cartão de teste público (Visa), aceito por qualquer ambiente de demonstração.
-CARTAO_DE_TESTE = "4111111111111111"
+
+def _cpf_digits():
+    return "".join(ch for ch in _fake.cpf() if ch.isdigit())
 
 
 @library(scope="GLOBAL")
 class DataFactory:
-    """Gera passageiro e reserva com dados válidos e únicos."""
+    """Gera documentos válidos, clientes e datas relativas a hoje."""
 
-    @keyword("New Passenger")
-    def new_passenger(self):
-        nome = _fake.first_name()
-        sobrenome = _fake.last_name()
+    @keyword("New Cpf")
+    def new_cpf(self):
+        return _cpf_digits()
+
+    @keyword("New Invalid Cpf")
+    def new_invalid_cpf(self):
+        cpf = _cpf_digits()
+        ultimo = (int(cpf[-1]) + 1) % 10
+        return cpf[:-1] + str(ultimo)
+
+    @keyword("New Passport")
+    def new_passport(self):
+        return "".join(random.choices(string.ascii_uppercase, k=2)) + f"{random.randint(0, 999999):06d}"
+
+    @keyword("New Client Data")
+    def new_client_data(self, doc_type="CPF", nationality="Brasileira"):
+        nome, sobrenome = _fake.first_name(), _fake.last_name()
         return {
-            "name": f"{nome} {sobrenome}",
-            "address": _fake.street_address(),
-            "city": _fake.city(),
-            "state": _fake.estado_sigla(),
-            "zip_code": _fake.postcode().replace("-", ""),
-            "card_type": "visa",
-            "card_number": CARTAO_DE_TESTE,
-            "card_month": "12",
-            "card_year": str(date.today().year + 3),
-            "name_on_card": f"{nome} {sobrenome}".upper(),
+            "doc_type": doc_type,
+            "doc": self.new_passport() if doc_type == "PASSAPORTE" else _cpf_digits(),
+            "nationality": nationality, "first_name": nome, "last_name": sobrenome,
+            "email": f"{nome}.{sobrenome}.{random.randint(1000, 9999)}@example.com".lower(),
+            "phone": f"119{random.randint(10000000, 99999999)}",
         }
 
-    @keyword("New Booking Payload")
-    def new_booking_payload(self, noites=3, dias_ate_checkin=30, deposito=True):
-        checkin = date.today() + timedelta(days=int(dias_ate_checkin))
-        checkout = checkin + timedelta(days=int(noites))
-        return {
-            "firstname": _fake.first_name(),
-            "lastname": _fake.last_name(),
-            "totalprice": _fake.random_int(min=150, max=2500),
-            "depositpaid": bool(deposito),
-            "bookingdates": {"checkin": checkin.isoformat(), "checkout": checkout.isoformat()},
-            "additionalneeds": _fake.random_element(["Breakfast", "Late checkout", "Parking"]),
-        }
+    @keyword("New Person Name")
+    def new_person_name(self):
+        return _fake.name()
+
+    @keyword("Date From Today")
+    def date_from_today(self, dias):
+        """Data ISO (AAAA-MM-DD) a ``dias`` de hoje."""
+        return (date.today() + timedelta(days=int(dias))).isoformat()

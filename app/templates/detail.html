@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}Reserva {{ r.number }} - Locadora Demo{% endblock %}
+{% block content %}
+{% if new %}<div class="alert" id="alert-criada">Reserva {{ r.number }} criada com sucesso.</div>{% endif %}
+<h1>Reserva <span id="detail-number">{{ r.number }}</span></h1>
+<div class="card">
+  <dl style="display:grid;grid-template-columns:220px 1fr;gap:8px">
+    <dt>Status</dt><dd id="detail-status">{{ r.status }}</dd>
+    <dt>Tipo</dt><dd id="detail-tipo">{{ r.type }}</dd>
+    <dt>Cliente</dt><dd id="detail-cliente">{{ r.client_name }}</dd>
+    <dt>Documento do cliente</dt><dd id="detail-documento">{{ r.client_doc_type }} {{ r.client_doc }}</dd>
+    <dt>Condutor</dt><dd id="detail-condutor">{{ r.driver.name }} ({{ r.driver.doc_type }} {{ r.driver.doc }})</dd>
+    <dt>Retirada</dt><dd id="detail-retirada">{{ stores[r.pickup_store].name }} - {{ r.pickup_date }}</dd>
+    <dt>Devolução</dt><dd id="detail-devolucao">{{ stores[r.return_store].name }} - {{ r.return_date }}</dd>
+    <dt>Tarifa</dt><dd id="detail-tarifa">{{ r.price.rate_name }}</dd>
+    <dt>Grupo</dt><dd id="detail-grupo">{{ groups[r.group].name }}</dd>
+    <dt>Proteções</dt><dd id="detail-protecoes">{% for p in r.protections %}{{ protections[p].name }}{% if not loop.last %}, {% endif %}{% endfor %}</dd>
+    <dt>Acessórios</dt><dd id="detail-acessorios">{% for a in r.accessories %}{{ accessories[a].name }}{% if not loop.last %}, {% endif %}{% else %}Nenhum{% endfor %}</dd>
+    <dt>Motoristas adicionais</dt><dd id="detail-motoristas">{{ r.additional_drivers|length }} ({{ r.price.drivers_exempt }} isento(s), {{ r.price.drivers_charged }} cobrado(s))</dd>
+    <dt>Valor motoristas</dt><dd id="detail-motoristas-valor">R$ {{ '%.2f'|format(r.price.drivers_total)|replace('.', ',') }}</dd>
+    <dt>Carro reserva (replacement)</dt><dd id="detail-replacement">{{ 'Sim' if r.is_replacement else 'Não' }}</dd>
+    <dt>Número do sinistro</dt><dd id="detail-sinistro">{{ r.claim_number or '-' }}</dd>
+    <dt>Reserva externa</dt><dd id="detail-reserva-externa">{{ r.external_reservation or '-' }}</dd>
+    <dt>E-mail secundário</dt><dd id="detail-email-secundario">{{ r.contact.secondary_email or '-' }}</dd>
+    <dt>Motivo do cancelamento</dt><dd id="detail-motivo">{{ r.cancel_reason or '-' }}</dd>
+    <dt><strong>Total</strong></dt><dd><strong id="detail-total">R$ {{ '%.2f'|format(r.price.total)|replace('.', ',') }}</strong></dd>
+  </dl>
+</div>
+<div class="row">
+  {% if r.status != 'Cancelada' %}<a class="btn" id="btn-editar" href="/reservas/{{ r.number }}/editar">Editar</a>{% endif %}
+  <a class="btn secondary" href="/reservas">Voltar para a consulta</a>
+</div>
+{% endblock %}

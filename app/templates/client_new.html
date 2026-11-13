@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block title %}Cadastrar cliente - Locadora Demo{% endblock %}
+{% block content %}
+<h1>Cadastrar cliente PF</h1>
+<div class="card" id="client-form">
+  <div class="row">
+    <div><label for="nationality">Nacionalidade</label>
+      <select id="nationality"><option>Brasileira</option><option>Estrangeira</option></select></div>
+    <div><label for="doc-type">Documento</label>
+      <select id="doc-type"><option value="CPF">CPF</option><option value="PASSAPORTE">Passaporte</option></select></div>
+    <div><label for="doc">Número do documento</label><input id="doc"></div>
+  </div>
+  <div class="row">
+    <div><label for="first-name">Nome *</label><input id="first-name"></div>
+    <div><label for="last-name">Sobrenome *</label><input id="last-name"></div>
+  </div>
+  <div class="row">
+    <div><label for="email">E-mail</label><input id="email"></div>
+    <div><label for="phone">Telefone</label><input id="phone"></div>
+  </div>
+  <div class="row">
+    <div><label for="zip">CEP</label><input id="zip"></div>
+    <button type="button" class="secondary" id="btn-buscar-cep">Buscar CEP</button>
+  </div>
+  <div class="row">
+    <div><label for="street">Logradouro</label><input id="street"></div>
+    <div><label for="number">Número</label><input id="number"></div>
+    <div><label for="district">Bairro</label><input id="district"></div>
+    <div><label for="city">Cidade</label><input id="city"></div>
+    <div><label for="state">UF</label><input id="state"></div>
+  </div>
+  <label><input type="checkbox" id="terms"> Li e aceito os termos de uso</label>
+  <div class="error" id="client-error"></div>
+  <button type="button" id="btn-cadastrar" disabled>Cadastrar</button>
+</div>
+<div class="alert" id="client-success" hidden></div>
+<a class="btn" id="btn-reservar-cliente" hidden>Reservar para este cliente</a>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const $ = id => document.getElementById(id);
+$('nationality').addEventListener('change', () => {
+  if ($('nationality').value === 'Estrangeira') { $('doc-type').value = 'PASSAPORTE'; $('doc-type').disabled = true; }
+  else { $('doc-type').disabled = false; }
+});
+$('terms').addEventListener('change', () => $('btn-cadastrar').disabled = !$('terms').checked);
+$('btn-buscar-cep').onclick = async () => {
+  $('client-error').textContent = '';
+  const res = await api('GET', '/api/zip/' + encodeURIComponent($('zip').value));
+  if (!res.ok) { $('client-error').textContent = 'CEP não encontrado.'; return; }
+  ['street', 'district', 'city', 'state'].forEach(f => $(f).value = res.data[f]);
+};
+$('btn-cadastrar').onclick = async () => {
+  $('client-error').textContent = '';
+  if (!$('first-name').value.trim() || !$('last-name').value.trim()) { $('client-error').textContent = 'Informe nome e sobrenome.'; return; }
+  const res = await api('POST', '/api/clients', {
+    nationality: $('nationality').value, doc_type: $('doc-type').value, doc: $('doc').value,
+    first_name: $('first-name').value, last_name: $('last-name').value, email: $('email').value, phone: $('phone').value,
+    address: { zip: $('zip').value, street: $('street').value, number: $('number').value,
+               district: $('district').value, city: $('city').value, state: $('state').value },
+  });
+  if (!res.ok) {
+    $('client-error').textContent = res.data.code === 'DUPLICATED_DOC' ? 'Este documento já possui cadastro.' : res.data.message;
+    return;
+  }
+  $('client-success').hidden = false;
+  $('client-success').textContent = `Cliente ${res.data.first_name} ${res.data.last_name} cadastrado.`;
+  $('btn-reservar-cliente').href = `/reservas/nova-pf?doc_type=${res.data.doc_type}&doc=${encodeURIComponent(res.data.doc)}`;
+  $('btn-reservar-cliente').hidden = false;
+};
+</script>
+{% endblock %}
