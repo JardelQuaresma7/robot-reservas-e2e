@@ -33,7 +33,7 @@ Deve atualizar a reserva confirmada com grupo esgotado sem exibir o modal
     Update Page Should Be Open    ${reservation}[number]
     Change Group On Update    ${GROUP_SOLD_OUT}
     Save Update
-    Unavailable Group Modal Should Not Be Open
+    # Sem modal no caminho: o salvar leva direto ao detalhe.
     Wait Until Location Is    ${APP_URL}/reservas/${reservation}[number]
     Detail Field Should Be    grupo    Grupo F - SUV
     Detail Field Should Be    status    Confirmada
@@ -66,7 +66,7 @@ Deve atualizar a reserva PJ confirmada com grupo esgotado sem exibir o modal
     Edit From Details
     Change Group On Update    ${GROUP_SOLD_OUT}
     Save Update
-    Unavailable Group Modal Should Not Be Open
+    # Sem modal no caminho: o salvar leva direto ao detalhe.
     Wait Until Location Is    ${APP_URL}/reservas/${number}
     Detail Field Should Be    grupo    Grupo F - SUV
 

@@ -26,8 +26,9 @@ Fill Different Conductor
     [Documentation]    Condutor diferente do cliente (PF) ou condutor do acordo (PJ).
     [Arguments]    ${doc}    ${name}    ${doc_type}=CPF
     Wait Conductor Step
-    ${is_pf}    Run Keyword And Return Status    Element Should Be Visible    ${CHECK_DRIVER_IS_CLIENT}
-    IF    ${is_pf}    Unselect Checkbox    ${CHECK_DRIVER_IS_CLIENT}
+    # Só a reserva PF tem a opção "o condutor é o próprio cliente".
+    ${is_pf}    Get Element Count    ${CHECK_DRIVER_IS_CLIENT}
+    IF    ${is_pf} > 0    Unselect Checkbox    ${CHECK_DRIVER_IS_CLIENT}
     Select From List By Value    ${SELECT_DRIVER_DOC_TYPE}    ${doc_type}
     Fill Field    ${INPUT_DRIVER_DOC}    ${doc}
     Fill Field    ${INPUT_DRIVER_NAME}    ${name}

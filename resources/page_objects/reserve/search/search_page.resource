@@ -71,6 +71,7 @@ Results Should Not Contain
 Result Count Should Be
     [Documentation]    Quantidade de linhas no resultado.
     [Arguments]    ${expected}
+    Wait Until Element Is Visible    ${RESULT_ROWS}
     Wait Until Keyword Succeeds    5x    300ms    Page Should Contain Element    ${RESULT_ROWS}    limit=${expected}
 
 Search Error Should Be
@@ -87,12 +88,14 @@ Click Row Action
     [Documentation]    Ação da linha: ver, editar, email, pdf, cancelar.
     [Arguments]    ${number}    ${action}
     ${locator}    Format String    ${ROW_ACTION}    number=${number}    action=${action}
+    Wait Until Element Is Visible    ${locator}
     Click Element    ${locator}
 
 Get Row Action Link
     [Documentation]    URL de uma ação que é link (pdf, ver, editar).
     [Arguments]    ${number}    ${action}
     ${locator}    Format String    ${ROW_ACTION}    number=${number}    action=${action}
+    Wait Until Element Is Visible    ${locator}
     ${href}    Get Element Attribute    ${locator}    href
     RETURN    ${href}
 

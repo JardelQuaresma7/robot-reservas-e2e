@@ -22,10 +22,6 @@ Unavailable Group Modal Should Open
     Wait Until Element Is Visible    ${MODAL_GROUP}
     Element Should Contain    ${MODAL_GROUP}    Grupo selecionado indisponível
 
-Unavailable Group Modal Should Not Be Open
-    [Documentation]    O modal de grupo não aparece.
-    Element Should Not Be Visible    ${MODAL_GROUP}
-
 Force Reservation
     [Documentation]    Escolhe "Forçar reserva" no modal de grupo.
     Click Button    ${BTN_FORCE}
